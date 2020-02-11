@@ -19,29 +19,27 @@ class ImageLoader {
   RandomAccessFile _dat;
   RandomAccessFile _cut;
 
-  ImageLoader() {
-    init();
-  }
-
   void init() async {
-    await SimplePermissions.requestPermission(Permission.WriteExternalStorage);
-    final File f = File(_PATH + '0/idx');
-    _n = (await f.length()) ~/ 4 - 1;
-    final ib = await f.readAsBytes();
-    for (int i = 0; i < (_n + 1) * 4; i += 4) {
-      var v = 0;
-      for (int j = 0; j < 4; ++j) {
-        v += ib[i + j] * pow(256, 3 - j);
+    if (_n == null) {
+      await SimplePermissions.requestPermission(Permission.WriteExternalStorage);
+      final File f = File(_PATH + '0/idx');
+      _n = (await f.length()) ~/ 4 - 1;
+      final ib = await f.readAsBytes();
+      for (int i = 0; i < (_n + 1) * 4; i += 4) {
+        var v = 0;
+        for (int j = 0; j < 4; ++j) {
+          v += ib[i + j] * pow(256, 3 - j);
+        }
+        _idx.add(v);
       }
-      _idx.add(v);
-    }
-    final File fm = File('/sdcard/cut/mrt');
-    try {
-      _mrt = await fm.readAsBytes();
-    } catch (e) {
-      _mrt = new Uint8List(_n);
-      for (int i = 0; i < _n; ++i) {
-        _mrt[i] = 120;
+      final File fm = File('/sdcard/cut/mrt');
+      try {
+        _mrt = await fm.readAsBytes();
+      } catch (e) {
+        _mrt = new Uint8List(_n);
+        for (int i = 0; i < _n; ++i) {
+          _mrt[i] = 120;
+        }
       }
     }
     final File fd = File(_PATH + '0/dat');
@@ -73,8 +71,9 @@ class ImageLoader {
   }
 
   void closeAll() {
-    _cut.closeSync();
     final File fm = File('/sdcard/cut/mrt');
     fm.writeAsBytesSync(_mrt);
+    _dat.closeSync();
+    _cut.closeSync();
   }
 }

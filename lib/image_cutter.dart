@@ -4,7 +4,7 @@ import 'image_loader.dart';
 import 'image_painter.dart';
 import 'shuffler.dart';
 
-class ImageCutter extends StatelessWidget {
+class ImageCutter extends StatelessWidget with WidgetsBindingObserver {
   final ImageLoader _loader = new ImageLoader();
   final ImagePainter _painter = new ImagePainter();
   Shuffler _idFactory;
@@ -12,6 +12,20 @@ class ImageCutter extends StatelessWidget {
   int _count;
   int _total;
   bool _clicked;
+
+  ImageCutter() {
+    init();
+  }
+
+  void init() async {
+    await _loader.init();
+    WidgetsBinding.instance.addObserver(this);
+    _total = _loader.getN();
+    _count = 0;
+    _idFactory = new Shuffler(_total);
+    _id = null;
+    _next(4);
+  }
 
   void crop() {
     _clicked = true;
@@ -26,11 +40,6 @@ class ImageCutter extends StatelessWidget {
         return;
       }
       _loader.setMerit(_id, mrt);
-    }
-    if (_idFactory == null) {
-      _total = _loader.getN();
-      _count = 0;
-      _idFactory = new Shuffler(_total);
     }
     _clicked = false;
     _id = _idFactory.next();
@@ -83,16 +92,20 @@ class ImageCutter extends StatelessWidget {
         Positioned(
           top: 0.0,
           right: 0.0,
-          child: Row(
-            children: <Widget>[
-              MaterialButton(
-                  onPressed: _loader.closeAll,
-                  color: Color.fromRGBO(128, 255, 0, 0.1)),
-            ],
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: MaterialButton(
+            color: Color.fromRGBO(128, 255, 0, 0.1),
           ),
         ),
       ],
     );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _loader.closeAll();
+    } else if (state == AppLifecycleState.resumed) {
+      _loader.init();
+    }
   }
 }

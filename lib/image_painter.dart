@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -19,6 +20,8 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
   ui.Image _image;
   TextSpan _info;
 
+  int _firstPan;
+
   @override
   void paint(Canvas canvas, Size size) {
     if (_image != null) {
@@ -38,6 +41,7 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
   }
 
   void onScaleStart(ScaleStartDetails details) {
+    --_firstPan;
     _zoomingOffset = details.focalPoint;
     _previousZoom = _zoom;
     _previousOffset = _offset;
@@ -59,12 +63,18 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
   }
 
   void setImage(ui.Image image, String info) {
+    bool yMode = true;
     if (image != null) {
       _image = image;
       _info = TextSpan(text: info);
+      yMode = _image.height >= _image.width;
     }
-    _offset = Offset.zero;
-    _zoom = 1.0 * H / _image.height;
+    _firstPan = yMode ? 1 : -1;
+    _zoom = yMode ? 1.0 * H / _image.height : 1.0 * W / _image.width;
+    final x = max(1.0 * W - _image.width * _zoom, 0.0);
+    final y = max(1.0 * H - _image.height * _zoom, 0.0);
+    _offset = Offset.zero.translate(x, y) / _zoom;
+    _previousOffset = _offset;
     notifyListeners();
   }
 
@@ -73,16 +83,22 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
     if (_offset.dx > 0 && _offset.dx < 20.0) {
       _offset = _offset.translate(-_offset.dx, 0.0);
     }
-    final x = (_offset.dx + _image.width) * _zoom;
-    if (x < W && x + 20.0 > W) {
-      _zoom = W / (_offset.dx + _image.width);
-    }*/
     if (_offset.dy > 0 && _offset.dy < 20.0) {
     _offset = _offset.translate(0.0, -_offset.dy);
     }
-    final y = (_offset.dy + _image.height) * _zoom;
-    if (y < H && y + 20.0 > H) {
-      _zoom = H / (_offset.dy + _image.height);
+    */
+    if (_firstPan < 0) {
+      if (_offset.dy < _previousOffset.dy) {
+        _zoom = 1.0 /
+            (1.0 / _previousZoom -
+                (_previousOffset.dy - _offset.dy) / _ORIGIN.dy);
+      }
+    } else {
+      _offset = _offset.translate(0.0, -_offset.dy);
+    }
+    final x = (_offset.dx + _image.width) * _zoom;
+    if (x < W) {
+      _offset = _offset.translate((W - x) / _zoom, 0.0);
     }
   }
 
