@@ -1,14 +1,11 @@
-import 'dart:math';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:cutter/image_data.dart';
 import 'package:flutter/material.dart';
 
 class ImagePainter extends ChangeNotifier implements CustomPainter {
-  // The size of my KNL10.
-  static const W = 360;
-  static const H = 614;
 
-  final _ORIGIN = Offset.zero.translate(W * 0.5, H * 1.0);
 
   Offset _offset;
   Offset _previousOffset;
@@ -16,20 +13,33 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
 
   double _zoom;
   double _previousZoom;
+  double _w, _h;
+  Offset _origin;
 
   ui.Image _image;
-  TextSpan _info;
+  String _info;
+  String _info2;
+  ImageData _data;
 
   int _firstPan;
+
+  void setBoundary(double w, double h) {
+    _w = w;
+    _h = h;
+    _origin = Offset.zero.translate(_w * 0.5, _h * 1.0);
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
     if (_image != null) {
       _postProcess();
+      if (_data.rotation as int != 0) {
+        canvas.rotate(-(_data.rotation as int) * math.pi / 180.0);
+      }
       canvas.scale(_zoom);
       canvas.drawImage(_image, _offset, new Paint());
       final textPainter =
-          TextPainter(text: _info, textDirection: TextDirection.ltr);
+          TextPainter(text: TextSpan(text: _info + _info2), textDirection: TextDirection.ltr);
       textPainter.layout();
       textPainter.paint(canvas, Offset.zero.translate(10.0, 50.0));
     }
@@ -54,26 +64,40 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
       return;
     }
     _zoom = _previousZoom * details.scale;
-    _offset = _previousOffset + _ORIGIN * (1.0 / _zoom - 1.0 / _previousZoom);
+    _offset = _previousOffset + _origin * (1.0 / _zoom - 1.0 / _previousZoom);
     notifyListeners();
   }
 
   List getCrop() {
-    return [_zoom * 1024.0 / H, -_offset * (1024.0 / H)];
+    return [-_offset.dx, -_offset.dy, _w/_zoom, _h/_zoom];
   }
 
   void setImage(ui.Image image, String info) {
-    bool yMode = true;
     if (image != null) {
       _image = image;
-      _info = TextSpan(text: info);
-      yMode = _image.height >= _image.width;
+      _info = info;
+      return;
     }
-    _firstPan = yMode ? 1 : -1;
-    _zoom = yMode ? 1.0 * H / _image.height : 1.0 * W / _image.width;
-    final x = max(1.0 * W - _image.width * _zoom, 0.0);
-    final y = max(1.0 * H - _image.height * _zoom, 0.0);
+    _firstPan = 1;
+    // TODO(support rotation!)
+    _zoom = 1.0 * _h / _image.height;
+    final x = math.max(1.0 * _w - _image.width * _zoom, 0.0);
+    final y = math.max(1.0 * _h - _image.height * _zoom, 0.0);
     _offset = Offset.zero.translate(x, y) / _zoom;
+    _previousOffset = _offset;
+    notifyListeners();
+  }
+
+  void setData(List<ImageData> data, int dataId) {
+    _data = data[dataId];
+    _info2 = ' [$dataId / ${data.length}]';
+    _firstPan = 1;
+    if (_data.rotation as int == 0 || _data.rotation as int == 180) {
+      _zoom = math.min(_w / (_data.w as double), _h / (_data.h as double));
+    } else {
+      _zoom = math.min(_w / (_data.h as double), _h/ (_data.w as double));
+    }
+    _offset = Offset.zero.translate(-(_data.dx as double), -(_data.dy as double));
     _previousOffset = _offset;
     notifyListeners();
   }
@@ -91,14 +115,14 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
       if (_offset.dy < _previousOffset.dy) {
         _zoom = 1.0 /
             (1.0 / _previousZoom -
-                (_previousOffset.dy - _offset.dy) / _ORIGIN.dy);
+                (_previousOffset.dy - _offset.dy) / _origin.dy);
       }
     } else {
       _offset = _offset.translate(0.0, -_offset.dy);
     }
     final x = (_offset.dx + _image.width) * _zoom;
-    if (x < W) {
-      _offset = _offset.translate((W - x) / _zoom, 0.0);
+    if (x < _w) {
+      _offset = _offset.translate((_w - x) / _zoom, 0.0);
     }
   }
 
@@ -117,4 +141,5 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
     // TODO: implement shouldRebuildSemantics
     return null;
   }
+
 }

@@ -1,79 +1,78 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:simple_permissions/simple_permissions.dart';
 import 'package:flutter/material.dart';
+import 'package:simple_permissions/simple_permissions.dart';
+
+import 'image_data.dart';
+import 'image_index.dart';
 
 class ImageLoader {
-  static const String _PATH =
-      '/mnt/ext_sdcard/Android/data/com.rabbitxp.dat/files/screen/in/';
+  static const String CONFIG = '/sdcard/cutter';
 
-  static const List<int> _MRT = [48, 49, 50, 51, 52];
-
-  int _n;
+  List<List<ImageData>> _imageData;
+  final _imageIndex = <ImageIndex>[];
+  int _cur = -1;
+  String _path;
   List<int> _idx = [];
   Uint8List _mrt;
   RandomAccessFile _dat;
-  RandomAccessFile _cut;
 
-  void init() async {
-    if (_n == null) {
-      await SimplePermissions.requestPermission(Permission.WriteExternalStorage);
-      final File f = File(_PATH + '0/idx');
-      _n = (await f.length()) ~/ 4 - 1;
-      final ib = await f.readAsBytes();
-      for (int i = 0; i < (_n + 1) * 4; i += 4) {
-        var v = 0;
-        for (int j = 0; j < 4; ++j) {
-          v += ib[i + j] * pow(256, 3 - j);
-        }
-        _idx.add(v);
+  ImageLoader() {
+
+    _path = File(CONFIG).readAsStringSync().trim();
+    final f = File(_path + 'dir').openSync();
+    final n = f.lengthSync() ~/ 16;
+    for (int i = 0; i < n; ++i) {
+      var data = ImageData(f);
+      while (_imageData.length < data.index) {
+        _imageData.add(<ImageData>[]);
       }
-      final File fm = File('/sdcard/cut/mrt');
-      try {
-        _mrt = await fm.readAsBytes();
-      } catch (e) {
-        _mrt = new Uint8List(_n);
-        for (int i = 0; i < _n; ++i) {
-          _mrt[i] = 120;
-        }
-      }
+      _imageData[data.index].add(data);
     }
-    final File fd = File(_PATH + '0/dat');
-    _dat = await fd.open();
-    final File fc = File('/sdcard/cut/cut');
-    _cut = await fc.open(mode: FileMode.append);
+    f.close();
+    for (int i = 0; i < 32; ++i) {
+      _imageIndex.add(null);
+    }
   }
 
   int getN() {
-    return _n;
+    return _imageData.length;
   }
 
   bool isUnprocessed(int id) {
-    return _mrt[id] == 120;
+    return _imageData[id].any((d) => (d.merit as int) == 3);
   }
 
   Future<ui.Image> getImage(int id) async {
-    await _dat.setPosition(_idx[id]);
-    final list = await _dat.read(_idx[id + 1] - _idx[id]);
-    return await decodeImageFromList(list);
+    final index = _imageData[id][0].index;
+    final n = index ~/ 10000;
+    if (n != _cur) {
+      _cur = n;
+      _dat = File('$_path$n.dat').openSync();
+    }
+    if (_imageIndex[n] == null) {
+      _imageIndex[n] = ImageIndex(_path, n);
+    }
+    final start = _imageIndex[n].start[index % 10000];
+    final length = _imageIndex[n].start[index % 10000 + 1] - start;
+    _dat.setPositionSync(start);
+    final b = _dat.readSync(length);
+    return await decodeImageFromList(b);
   }
 
-  void writeResult(String result) async {
-    await _cut.writeString(result);
+  List<ImageData> getData(int id) {
+    return _imageData[id];
   }
 
-  void setMerit(int id, int merit) {
-    _mrt[id] = _MRT[merit];
-  }
-
-  void closeAll() {
-    final File fm = File('/sdcard/cut/mrt');
-    fm.writeAsBytesSync(_mrt);
-    _dat.closeSync();
-    _cut.closeSync();
+  void saveAll() {
+    final f = File(_path + 'dir').openSync(mode: FileMode.write);
+    for (var dataList in _imageData) {
+      for (var data in dataList) {
+        data.save(f);
+      }
+    }
   }
 }
