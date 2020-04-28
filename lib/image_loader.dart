@@ -1,10 +1,5 @@
-import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:ui' as ui;
-
-import 'package:flutter/material.dart';
-import 'package:simple_permissions/simple_permissions.dart';
 
 import 'image_data.dart';
 import 'image_index.dart';
@@ -12,22 +7,19 @@ import 'image_index.dart';
 class ImageLoader {
   static const String CONFIG = '/sdcard/cutter';
 
-  List<List<ImageData>> _imageData;
+  List<List<ImageData>> _imageData = [];
   final _imageIndex = <ImageIndex>[];
   int _cur = -1;
   String _path;
-  List<int> _idx = [];
-  Uint8List _mrt;
   RandomAccessFile _dat;
 
   ImageLoader() {
-
     _path = File(CONFIG).readAsStringSync().trim();
     final f = File(_path + 'dir').openSync();
     final n = f.lengthSync() ~/ 16;
     for (int i = 0; i < n; ++i) {
       var data = ImageData(f);
-      while (_imageData.length < data.index) {
+      while (_imageData.length < data.index + 1) {
         _imageData.add(<ImageData>[]);
       }
       _imageData[data.index].add(data);
@@ -46,7 +38,7 @@ class ImageLoader {
     return _imageData[id].any((d) => (d.merit as int) == 3);
   }
 
-  Future<ui.Image> getImage(int id) async {
+  Uint8List getImage(int id) {
     final index = _imageData[id][0].index;
     final n = index ~/ 10000;
     if (n != _cur) {
@@ -59,8 +51,7 @@ class ImageLoader {
     final start = _imageIndex[n].start[index % 10000];
     final length = _imageIndex[n].start[index % 10000 + 1] - start;
     _dat.setPositionSync(start);
-    final b = _dat.readSync(length);
-    return await decodeImageFromList(b);
+    return _dat.readSync(length);
   }
 
   List<ImageData> getData(int id) {

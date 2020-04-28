@@ -16,10 +16,7 @@ class ImageCutter extends StatelessWidget with WidgetsBindingObserver {
   int _total;
   bool _clicked;
   bool _inited = false;
-
-  ImageCutter() {
-    //init();
-  }
+  List<int> _idList = [];
 
   void init() async {
     if (_inited) return;
@@ -31,84 +28,115 @@ class ImageCutter extends StatelessWidget with WidgetsBindingObserver {
     _total = _loader.getN();
     _count = 0;
     _idFactory = new Shuffler(_total);
-    _id = null;
     _next();
   }
 
-  void crop() {
-    _clicked = true;
-    // TODO
-    //_loader.addCrop(_painter.getCrop());
-  }
-
   void _next() async {
+    if (_id != null) {
+      _idList.add(_id);
+    }
+    _clicked = false;
     _id = _idFactory.next();
     ++_count;
+    /*
     while (!_loader.isUnprocessed(_id)) {
       _id = _idFactory.next();
       ++_count;
-    }
+    }*/
+    _show();
+  }
+
+  void _show() {
     _data = _loader.getData(_id);
     _dataId = 0;
-    _painter.setImage(await _loader.getImage(_id), '$_count / $_total');
+    _painter.setImage(_loader.getImage(_id), '$_count / $_total');
     _painter.setData(_data, _dataId);
   }
 
+  void _prev() async {
+    _id = _idList.removeLast();
+    if (_id != null) {
+      _show();
+    }
+  }
+
+  void _rotate() async {
+    _painter.rotate();
+  }
+
+  void _save() {
+    _painter.save();
+    _isSelected[1] = true;
+  }
+
+  void _delete() {
+
+  }
+
+  void _add() {
+    _isSelected[1] = false;
+    _dataId++;
+    _painter.setData(_data, _dataId);
+  }
+
+  void _defer() {}
+
+  final _isSelected = [false, false, false, false, false, false, false];
   @override
   Widget build(BuildContext context) {
     init();
-
     final width = MediaQuery.of(context).size.width;
     final height = width * 16 / 9.0;
     _painter.setBoundary(width, height);
     return Stack(
       fit: StackFit.expand,
       children: <Widget>[
-        GestureDetector(
-          onScaleStart: _painter.onScaleStart,
-          onScaleUpdate: _painter.onScaleUpdate,
-          onTap: () => _painter.setImage(null, null),
-          onDoubleTap: crop,
-          child: Container(
-            width: width,
-            height: width * 16 / 9.0,
+          GestureDetector(
+            onScaleStart: _painter.onScaleStart,
+            onScaleUpdate: _painter.onScaleUpdate,
+            onTap: () => _painter.redrawImage(),
             child: CustomPaint(
               painter: _painter,
             ),
           ),
+        Positioned(
+          top: width * 16 / 9.0,
+          child: Container(
+            height: 1.0,
+            width: width,
+            color: Colors.amberAccent,
+          )
         ),
         Positioned(
-          bottom: 0.0,
+          bottom: 10.0,
           left: 0.0,
-          child: Container(
-            padding: const EdgeInsets.all(0.0),
-            child: Row(
-              children: <Widget>[
-                MaterialButton(
-                    onPressed: () => _next(),
-                    color: Color.fromRGBO(128, 255, 0, 0.1)),
-                MaterialButton(
-                    onPressed: () => _next(),
-                    color: Color.fromRGBO(128, 128, 128, 0.1)),
-                MaterialButton(
-                    onPressed: () => _next(),
-                    color: Color.fromRGBO(0, 128, 255, 0.1)),
-                MaterialButton(
-                    onPressed: () => _next(),
-                    color: Color.fromRGBO(255, 128, 128, 0.5)),
-              ],
-              crossAxisAlignment: CrossAxisAlignment.start,
+          child: ToggleButtons(
+            borderColor: Color.fromARGB(0, 0, 0, 0),
+            children:[
+              Icon(Icons.skip_previous),
+              Icon(Icons.save),
+              Icon(Icons.add),
+              Icon(Icons.delete),
+              Icon(Icons.pause),
+              Icon(Icons.rotate_right),
+              Icon(Icons.skip_next),
+            ],
+            onPressed: (index) {
+              switch(index) {
+                case 0: _prev(); break;
+                case 1: _save(); break;
+                case 2: _add(); break;
+                case 3: _delete(); break;
+                case 4: _defer(); break;
+                case 5: _rotate(); break;
+                case 6: _next(); break;
+                default: break;
+              }
+            },
+            isSelected: _isSelected,
             ),
           ),
-        ),
-        Positioned(
-          top: 0.0,
-          right: 0.0,
-          child: MaterialButton(
-            color: Color.fromRGBO(128, 255, 0, 0.1),
-          ),
-        ),
-      ],
+    ],
     );
   }
 

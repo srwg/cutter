@@ -1,12 +1,12 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:cutter/image_data.dart';
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as image;
 
 class ImagePainter extends ChangeNotifier implements CustomPainter {
-
-
   Offset _offset;
   Offset _previousOffset;
   Offset _zoomingOffset;
@@ -15,7 +15,9 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
   double _previousZoom;
   double _w, _h;
   Offset _origin;
+  int _rotation;
 
+  Uint8List _rawImage;
   ui.Image _image;
   String _info;
   String _info2;
@@ -33,13 +35,11 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (_image != null) {
       _postProcess();
-      if (_data.rotation as int != 0) {
-        canvas.rotate(-(_data.rotation as int) * math.pi / 180.0);
-      }
       canvas.scale(_zoom);
       canvas.drawImage(_image, _offset, new Paint());
-      final textPainter =
-          TextPainter(text: TextSpan(text: _info + _info2), textDirection: TextDirection.ltr);
+      final textPainter = TextPainter(
+          text: TextSpan(text: _info + _info2),
+          textDirection: TextDirection.ltr);
       textPainter.layout();
       textPainter.paint(canvas, Offset.zero.translate(10.0, 50.0));
     }
@@ -68,36 +68,77 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
     notifyListeners();
   }
 
-  List getCrop() {
-    return [-_offset.dx, -_offset.dy, _w/_zoom, _h/_zoom];
+  void save() {
+    _data.merit = 2;
+    _data.rotation = _rotation;
+    _data.dx = -_offset.dx.round();
+    _data.dy = -_offset.dy.round();
+    _data.w = (_w / _zoom).round();
+    _data.h = (_h / _zoom).round();
+    if (_data.dx + _data.w > _image.width) {
+      _data.dx = _image.width - _data.w;
+    }
+    if (_data.dy + _data.h > _image.height) {
+      _data.dy = _image.height - _data.h;
+    }
   }
 
-  void setImage(ui.Image image, String info) {
-    if (image != null) {
-      _image = image;
-      _info = info;
-      return;
+  void setImage(Uint8List data, String info) {
+    _rawImage = data;
+    _info = info;
+  }
+
+  void setData(List<ImageData> data, int dataId) async {
+    while (dataId >= data.length) {
+      data.add(ImageData.from(_data));
     }
-    _firstPan = 1;
-    // TODO(support rotation!)
-    _zoom = 1.0 * _h / _image.height;
-    final x = math.max(1.0 * _w - _image.width * _zoom, 0.0);
-    final y = math.max(1.0 * _h - _image.height * _zoom, 0.0);
-    _offset = Offset.zero.translate(x, y) / _zoom;
+    _data = data[dataId];
+    _info2 = ' [${dataId + 1} / ${data.length}]';
+    _rotation = _data.rotation;
+    if (_data.rotation != 0) {
+      _image = await decodeImageFromList(image.encodeJpg(
+          image.copyRotate(image.decodeImage(_rawImage), _data.rotation)));
+    } else {
+      _image = await decodeImageFromList(_rawImage);
+    }
+    _drawImage();
+  }
+
+  void _drawImage() {
+    _firstPan = -1;
+    var dx = -1.0 * _data.dx;
+    var dy = -1.0 * _data.dy;
+    var w = _data.w;
+    var h = _data.h;
+    if (w * 16 > h * 9) {
+      dy += w * 16 / 9.0 - h;
+    } else {
+      dx += h * 9 / 16.0 - w;
+    }
+    _zoom = math.min(_w / w, _h / h);
+    _offset = Offset.zero.translate(dx, dy);
     _previousOffset = _offset;
     notifyListeners();
   }
 
-  void setData(List<ImageData> data, int dataId) {
-    _data = data[dataId];
-    _info2 = ' [$dataId / ${data.length}]';
-    _firstPan = 1;
-    if (_data.rotation as int == 0 || _data.rotation as int == 180) {
-      _zoom = math.min(_w / (_data.w as double), _h / (_data.h as double));
+  void rotate() async {
+    _rotation += 90;
+    if (_rotation == 360) _rotation = 0;
+    if (_rotation != 0) {
+      _image = await decodeImageFromList(image.encodeJpg(
+          image.copyRotate(image.decodeImage(_rawImage), _rotation)));
     } else {
-      _zoom = math.min(_w / (_data.h as double), _h/ (_data.w as double));
+      _image = await decodeImageFromList(_rawImage);
     }
-    _offset = Offset.zero.translate(-(_data.dx as double), -(_data.dy as double));
+    redrawImage();
+  }
+
+  void redrawImage() {
+    _firstPan = 1;
+    _zoom = 1.0 * _h / _image.height;
+    final x = math.max(1.0 * _w - _image.width * _zoom, 0.0);
+    final y = math.max(1.0 * _h - _image.height * _zoom, 0.0);
+    _offset = Offset.zero.translate(x, y) / _zoom;
     _previousOffset = _offset;
     notifyListeners();
   }
@@ -141,5 +182,4 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
     // TODO: implement shouldRebuildSemantics
     return null;
   }
-
 }
