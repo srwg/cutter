@@ -6,25 +6,40 @@ import 'image_loader.dart';
 import 'image_painter.dart';
 import 'shuffler.dart';
 
-class ImageCutter extends StatelessWidget with WidgetsBindingObserver {
+class ImageCutter extends StatefulWidget {
+  @override
+  _ImageCutterState createState() => _ImageCutterState();
+}
+
+class _ImageCutterState extends State<ImageCutter> {
   ImageLoader _loader;
+
   final ImagePainter _painter = new ImagePainter();
+
   List<ImageData> _data;
+
   Shuffler _idFactory;
+
   int _id, _dataId;
+
   int _count;
+
   int _total;
-  bool _clicked;
-  bool _inited = false;
+
+  String _info = 'N/A';
+
   List<int> _idList = [];
 
-  void init() async {
-    if (_inited) return;
-    _inited = true;
+  @override
+  initState() {
+    super.initState();
+    _init();
+  }
+
+  void _init() async {
     await SimplePermissions.requestPermission(Permission.WriteExternalStorage);
 
     _loader = ImageLoader();
-    WidgetsBinding.instance.addObserver(this);
     _total = _loader.getN();
     _count = 0;
     _idFactory = new Shuffler(_total);
@@ -34,30 +49,38 @@ class ImageCutter extends StatelessWidget with WidgetsBindingObserver {
   void _next() async {
     if (_id != null) {
       _idList.add(_id);
+      if (_data[_dataId].merit == 3) {
+        _data.removeAt(_dataId);
+        if (_dataId == 0) {
+          _idList.removeLast();
+        }
+      }
     }
-    _clicked = false;
     _id = _idFactory.next();
     ++_count;
-    /*
-    while (!_loader.isUnprocessed(_id)) {
+    while (_count <= _total && !_loader.isUnprocessed(_id)) {
       _id = _idFactory.next();
       ++_count;
-    }*/
-    _show();
-  }
-
-  void _show() {
-    _data = _loader.getData(_id);
-    _dataId = 0;
-    _painter.setImage(_loader.getImage(_id), '$_count / $_total');
-    _painter.setData(_data, _dataId);
+    }
+    _loadImage();
   }
 
   void _prev() async {
     _id = _idList.removeLast();
     if (_id != null) {
-      _show();
+      _loadImage();
     }
+  }
+
+  void _loadImage() {
+    _data = _loader.getData(_id);
+    _painter.setImage(_loader.getImage(_id));
+    _dataId = 0;
+    _show();
+  }
+
+  void _show() {
+    _painter.setData(_data[_dataId]);
   }
 
   void _rotate() async {
@@ -65,87 +88,123 @@ class ImageCutter extends StatelessWidget with WidgetsBindingObserver {
   }
 
   void _save() {
-    _painter.save();
-    _isSelected[1] = true;
+    // TODO support merit change.
+    _painter.save(2);
+    _add();
   }
 
   void _delete() {
-
+    if (_data.length == 1) {
+      _data[_dataId].merit = 3;
+      _next();
+    }
+    _data.removeAt(_dataId);
+    if (_dataId > _data.length - 1) {
+      _dataId = _data.length - 1;
+    }
+    _show();
   }
 
   void _add() {
-    _isSelected[1] = false;
-    _dataId++;
-    _painter.setData(_data, _dataId);
+    if (_data[_dataId].merit == 3) {
+      return;
+    }
+    if (_dataId >= _data.length - 1) {
+      _data.add(ImageData.from(_data[_dataId]));
+    }
+    ++_dataId;
+    _show();
   }
 
-  void _defer() {}
+  void _defer() {
+    // TODO
+  }
+
+  @override
+  Widget build(BuildContext context) => WillPopScope(
+    onWillPop: () async {
+      _loader.saveAll();
+      return true;
+    },
+    child: _app(context),
+  );
 
   final _isSelected = [false, false, false, false, false, false, false];
-  @override
-  Widget build(BuildContext context) {
-    init();
+
+  Widget _app(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    final height = width * 16 / 9.0;
+    final height = width * 1024 / 600;
     _painter.setBoundary(width, height);
     return Stack(
       fit: StackFit.expand,
       children: <Widget>[
-          GestureDetector(
-            onScaleStart: _painter.onScaleStart,
-            onScaleUpdate: _painter.onScaleUpdate,
-            onTap: () => _painter.redrawImage(),
-            child: CustomPaint(
-              painter: _painter,
-            ),
+        GestureDetector(
+          onScaleStart: _painter.onScaleStart,
+          onScaleUpdate: _painter.onScaleUpdate,
+          onTap: () => _painter.redrawImage(),
+          child: CustomPaint(
+            painter: _painter,
           ),
-        Positioned(
-          top: width * 16 / 9.0,
-          child: Container(
-            height: 1.0,
-            width: width,
-            color: Colors.amberAccent,
-          )
         ),
         Positioned(
-          bottom: 10.0,
+            top: width * 1024 / 600,
+            child: Container(
+              height: 1.0,
+              width: width,
+              color: Colors.amberAccent,
+            )),
+        Positioned(
+          bottom: 20.0,
           left: 0.0,
           child: ToggleButtons(
             borderColor: Color.fromARGB(0, 0, 0, 0),
-            children:[
+            children: [
               Icon(Icons.skip_previous),
-              Icon(Icons.save),
-              Icon(Icons.add),
-              Icon(Icons.delete),
-              Icon(Icons.pause),
               Icon(Icons.rotate_right),
+              Icon(Icons.pause),
+              Icon(Icons.delete),
+              Icon(Icons.add),
+              Icon(Icons.save),
               Icon(Icons.skip_next),
             ],
             onPressed: (index) {
-              switch(index) {
-                case 0: _prev(); break;
-                case 1: _save(); break;
-                case 2: _add(); break;
-                case 3: _delete(); break;
-                case 4: _defer(); break;
-                case 5: _rotate(); break;
-                case 6: _next(); break;
-                default: break;
+              switch (index) {
+                case 0:
+                  _prev();
+                  break;
+                case 1:
+                  _rotate();
+                  break;
+                case 2:
+                  _defer();
+                  break;
+                case 3:
+                  _delete();
+                  break;
+                case 4:
+                  _add();
+                  break;
+                case 5:
+                  _save();
+                  break;
+                case 6:
+                  _next();
+                  break;
+                default:
+                  break;
               }
+              setState(() => _info =
+                  '$_count / $_total [${_dataId + 1} / ${_data.length}]');
             },
             isSelected: _isSelected,
-            ),
           ),
-    ],
+        ),
+        Positioned(
+          bottom: 0.0,
+          right: 100.0,
+          child: Text(_info),
+        )
+      ],
     );
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) {
-      // TODO _loader.closeAll();
-    } else if (state == AppLifecycleState.resumed) {
-      // TODO _loader.init();
-    }
   }
 }

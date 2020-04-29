@@ -22,7 +22,7 @@ class ImageData {
   }
 
   ImageData.from(ImageData x) {
-    merit = x.merit;
+    merit = 3;
     rotation = x.rotation;
     index = x.index;
     dx = x.dx;
@@ -36,13 +36,14 @@ class ImageData {
   }
 
   void save(RandomAccessFile f) {
+    if (merit == 0) return;
     final b = ByteData(16);
-    b.setUint32(0, index);
+    b.setUint32(0, index, Endian.big);
     b.setUint8(0, (merit * 4  + rotation ~/ 90) & 15);
     b.setInt16(4, dx);
     b.setInt16(6, dy);
     b.setInt16(8, w);
     b.setInt16(10, h);
-    f.writeFromSync(b.buffer.asUint32List());
+    f.writeFromSync(b.buffer.asUint8List());
   }
 }

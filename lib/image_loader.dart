@@ -35,7 +35,7 @@ class ImageLoader {
   }
 
   bool isUnprocessed(int id) {
-    return _imageData[id].any((d) => (d.merit as int) == 3);
+    return _imageData[id].any((d) => d.merit == 3);
   }
 
   Uint8List getImage(int id) {

@@ -19,8 +19,6 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
 
   Uint8List _rawImage;
   ui.Image _image;
-  String _info;
-  String _info2;
   ImageData _data;
 
   int _firstPan;
@@ -37,11 +35,6 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
       _postProcess();
       canvas.scale(_zoom);
       canvas.drawImage(_image, _offset, new Paint());
-      final textPainter = TextPainter(
-          text: TextSpan(text: _info + _info2),
-          textDirection: TextDirection.ltr);
-      textPainter.layout();
-      textPainter.paint(canvas, Offset.zero.translate(10.0, 50.0));
     }
   }
 
@@ -68,8 +61,8 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
     notifyListeners();
   }
 
-  void save() {
-    _data.merit = 2;
+  void save(int merit) {
+    _data.merit = merit;
     _data.rotation = _rotation;
     _data.dx = -_offset.dx.round();
     _data.dy = -_offset.dy.round();
@@ -83,17 +76,12 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
     }
   }
 
-  void setImage(Uint8List data, String info) {
+  void setImage(Uint8List data) {
     _rawImage = data;
-    _info = info;
   }
 
-  void setData(List<ImageData> data, int dataId) async {
-    while (dataId >= data.length) {
-      data.add(ImageData.from(_data));
-    }
-    _data = data[dataId];
-    _info2 = ' [${dataId + 1} / ${data.length}]';
+  void setData(ImageData data) async {
+    _data = data;
     _rotation = _data.rotation;
     if (_data.rotation != 0) {
       _image = await decodeImageFromList(image.encodeJpg(
@@ -110,10 +98,8 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
     var dy = -1.0 * _data.dy;
     var w = _data.w;
     var h = _data.h;
-    if (w * 16 > h * 9) {
-      dy += w * 16 / 9.0 - h;
-    } else {
-      dx += h * 9 / 16.0 - w;
+    if (w > h) {
+      dy += w * 1024 / 600 - h;
     }
     _zoom = math.min(_w / w, _h / h);
     _offset = Offset.zero.translate(dx, dy);
