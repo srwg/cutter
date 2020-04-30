@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -93,15 +93,17 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
   }
 
   void _drawImage() {
-    _firstPan = -1;
+    // Enable pull-down prevention.
+    _firstPan = 1;
     var dx = -1.0 * _data.dx;
     var dy = -1.0 * _data.dy;
     var w = _data.w;
     var h = _data.h;
     if (w > h) {
       dy += w * 1024 / 600 - h;
+      h = (w * 1024 / 600).round();
     }
-    _zoom = math.min(_w / w, _h / h);
+    _zoom = _h / h;
     _offset = Offset.zero.translate(dx, dy);
     _previousOffset = _offset;
     notifyListeners();
@@ -120,11 +122,19 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
   }
 
   void redrawImage() {
+    // Enable pull-down prevention.
     _firstPan = 1;
-    _zoom = 1.0 * _h / _image.height;
-    final x = math.max(1.0 * _w - _image.width * _zoom, 0.0);
-    final y = math.max(1.0 * _h - _image.height * _zoom, 0.0);
-    _offset = Offset.zero.translate(x, y) / _zoom;
+    _zoom = _h / _image.height;
+    final w = _image.width * _zoom;
+    var dx = _w - w;
+    if (dx < 0.0) {
+      if (_image.width > _image.height * 1.5) {
+        dx = 0.5 * (w - _w);
+      } else {
+        dx = 0.0;
+      }
+    }
+    _offset = Offset.zero.translate(dx, 0) / _zoom;
     _previousOffset = _offset;
     notifyListeners();
   }
@@ -139,18 +149,25 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
     }
     */
     if (_firstPan < 0) {
+      // Pull up compensation (prevent baseline up moving).
       if (_offset.dy < _previousOffset.dy) {
         _zoom = 1.0 /
             (1.0 / _previousZoom -
                 (_previousOffset.dy - _offset.dy) / _origin.dy);
       }
     } else {
-      _offset = _offset.translate(0.0, -_offset.dy);
+      // Pull down compensation (prevent accidental move down).
+      _offset = _offset.translate(0.0, _previousOffset.dy - _offset.dy);
     }
     final x = (_offset.dx + _image.width) * _zoom;
     if (x < _w) {
       _offset = _offset.translate((_w - x) / _zoom, 0.0);
     }
+  }
+
+  void write(RandomAccessFile f) {
+    f.writeFromSync(_rawImage);
+    f.close();
   }
 
   @override

@@ -18,9 +18,8 @@ class Shuffler {
       return _a[_n - 1];
     }
     final j = _random.nextInt(_n - _cur) + _cur;
-    final tmp = _a[_cur];
-    _a[_cur] = _a[j];
-    _a[j] = tmp;
-    return _a[_cur++];
+    final tmp = _a[j];
+    _a[j] = _a[_cur];
+    return tmp;
   }
 }

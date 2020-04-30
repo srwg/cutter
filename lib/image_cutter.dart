@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:simple_permissions/simple_permissions.dart';
 
@@ -50,10 +52,7 @@ class _ImageCutterState extends State<ImageCutter> {
     if (_id != null) {
       _idList.add(_id);
       if (_data[_dataId].merit == 3) {
-        _data.removeAt(_dataId);
-        if (_dataId == 0) {
-          _idList.removeLast();
-        }
+        _data[_dataId].merit = 0;
       }
     }
     _id = _idFactory.next();
@@ -76,6 +75,7 @@ class _ImageCutterState extends State<ImageCutter> {
     _data = _loader.getData(_id);
     _painter.setImage(_loader.getImage(_id));
     _dataId = 0;
+    _isSelected[5] = false;
     _show();
   }
 
@@ -89,14 +89,16 @@ class _ImageCutterState extends State<ImageCutter> {
 
   void _save() {
     // TODO support merit change.
+    _isSelected[5] = !_isSelected[5];
     _painter.save(2);
     _add();
   }
 
   void _delete() {
     if (_data.length == 1) {
-      _data[_dataId].merit = 3;
+      _data[_dataId].merit = 0;
       _next();
+      return;
     }
     _data.removeAt(_dataId);
     if (_dataId > _data.length - 1) {
@@ -117,7 +119,9 @@ class _ImageCutterState extends State<ImageCutter> {
   }
 
   void _defer() {
-    // TODO
+    _painter.write(File('/sdcard/$_id.jpg').openSync(mode: FileMode.writeOnly));
+    _data.forEach((d) => d.merit = 0);
+    _next();
   }
 
   @override
@@ -154,7 +158,7 @@ class _ImageCutterState extends State<ImageCutter> {
               color: Colors.amberAccent,
             )),
         Positioned(
-          bottom: 20.0,
+          bottom: 12.0,
           left: 0.0,
           child: ToggleButtons(
             borderColor: Color.fromARGB(0, 0, 0, 0),
@@ -194,7 +198,7 @@ class _ImageCutterState extends State<ImageCutter> {
                   break;
               }
               setState(() => _info =
-                  '$_count / $_total [${_dataId + 1} / ${_data.length}]');
+                  '$_count / $_total [$_dataId / ${_data.length}]');
             },
             isSelected: _isSelected,
           ),
