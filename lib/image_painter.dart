@@ -126,11 +126,14 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
     _firstPan = 1;
     _zoom = _h / _image.height;
     final w = _image.width * _zoom;
+    // Compensate thin images by aligning to right.
     var dx = _w - w;
     if (dx < 0.0) {
-      if (_image.width > _image.height * 1.5) {
-        dx = 0.5 * (w - _w);
+      // Fat image should be aligned to center.
+      if (_image.width > _image.height) {
+        dx = 0.5 * (_w - w);
       } else {
+        // Crop right part.
         dx = 0.0;
       }
     }
@@ -140,28 +143,26 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
   }
 
   void _postProcess() {
-    /*
-    if (_offset.dx > 0 && _offset.dx < 20.0) {
-      _offset = _offset.translate(-_offset.dx, 0.0);
-    }
-    if (_offset.dy > 0 && _offset.dy < 20.0) {
-    _offset = _offset.translate(0.0, -_offset.dy);
-    }
-    */
-    if (_firstPan < 0) {
-      // Pull up compensation (prevent baseline up moving).
-      if (_offset.dy < _previousOffset.dy) {
+    // Pull up.
+    if (_offset.dy < _previousOffset.dy) {
+      if (_firstPan < 0) {
+        // Pull up compensation to prevent baseline moving up.
         _zoom = 1.0 /
             (1.0 / _previousZoom -
                 (_previousOffset.dy - _offset.dy) / _origin.dy);
+      } else {
+        // Pull up prevention.
+        _offset = _offset.translate(0.0, _previousOffset.dy - _offset.dy);
       }
-    } else {
-      // Pull down compensation (prevent accidental move down).
-      _offset = _offset.translate(0.0, _previousOffset.dy - _offset.dy);
     }
-    final x = (_offset.dx + _image.width) * _zoom;
-    if (x < _w) {
-      _offset = _offset.translate((_w - x) / _zoom, 0.0);
+    // Side affinity.
+    final w = _w / _zoom;
+    if (_offset.dx > 0 && _image.width > w) {
+      // Stick to left
+      _offset = _offset.translate(-_offset.dx, 0.0);
+    } else if (_offset.dx + _image.width < w) {
+      // Stick to right
+      _offset = _offset.translate(w - _image.width - _offset.dx, 0.0);
     }
   }
 
