@@ -67,14 +67,14 @@ class _ImageCutterState extends State<ImageCutter> {
   void _prev() async {
     _id = _idList.removeLast();
     if (_id != null) {
-      _loadImage();
+      _loadImage(last: true);
     }
   }
 
-  void _loadImage() {
+  void _loadImage({last: false}) {
     _data = _loader.getData(_id);
     _painter.setImage(_loader.getImage(_id));
-    _dataId = 0;
+    _dataId = last ? _data.length - 1 :0;
     _isSelected[5] = false;
     _show();
   }

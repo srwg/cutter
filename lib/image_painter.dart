@@ -20,6 +20,7 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
   Uint8List _rawImage;
   ui.Image _image;
   ImageData _data;
+  bool _rawImageChanged;
 
   int _firstPan;
 
@@ -78,16 +79,20 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
 
   void setImage(Uint8List data) {
     _rawImage = data;
+    _rawImageChanged = true;
   }
 
   void setData(ImageData data) async {
     _data = data;
-    _rotation = _data.rotation;
-    if (_data.rotation != 0) {
-      _image = await decodeImageFromList(image.encodeJpg(
-          image.copyRotate(image.decodeImage(_rawImage), _data.rotation)));
-    } else {
-      _image = await decodeImageFromList(_rawImage);
+    if (_rotation != _data.rotation || _rawImageChanged) {
+      _rawImageChanged = false;
+      _rotation = _data.rotation;
+      if (_data.rotation != 0) {
+        _image = await decodeImageFromList(image.encodeJpg(
+            image.copyRotate(image.decodeImage(_rawImage), _data.rotation)));
+      } else {
+        _image = await decodeImageFromList(_rawImage);
+      }
     }
     _drawImage();
   }
