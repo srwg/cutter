@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:simple_permissions/simple_permissions.dart';
 
 import 'image_data.dart';
 import 'image_loader.dart';
@@ -16,7 +15,7 @@ class ImageCutter extends StatefulWidget {
 class _ImageCutterState extends State<ImageCutter> {
   ImageLoader _loader;
 
-  final ImagePainter _painter = new ImagePainter();
+  ImagePainter _painter;
 
   List<ImageData> _data;
 
@@ -39,7 +38,8 @@ class _ImageCutterState extends State<ImageCutter> {
   }
 
   void _init() async {
-    await SimplePermissions.requestPermission(Permission.WriteExternalStorage);
+    _painter =
+        new ImagePainter((match) => setState(() => _isSelected[5] = match));
 
     _loader = ImageLoader();
     _total = _loader.getN();
@@ -74,13 +74,12 @@ class _ImageCutterState extends State<ImageCutter> {
   void _loadImage({last: false}) {
     _data = _loader.getData(_id);
     _painter.setImage(_loader.getImage(_id));
-    _dataId = last ? _data.length - 1 :0;
-    _isSelected[5] = false;
+    _dataId = last ? _data.length - 1 : 0;
     _show();
   }
 
   void _show() {
-    _painter.setData(_data[_dataId]);
+    _painter.setData(_data, _data[_dataId]);
   }
 
   void _rotate() async {
@@ -88,8 +87,10 @@ class _ImageCutterState extends State<ImageCutter> {
   }
 
   void _save() {
+    if (_isSelected[5]) {
+      return;
+    }
     // TODO support merit change.
-    _isSelected[5] = !_isSelected[5];
     _painter.save(2);
     _add();
   }
@@ -126,12 +127,12 @@ class _ImageCutterState extends State<ImageCutter> {
 
   @override
   Widget build(BuildContext context) => WillPopScope(
-    onWillPop: () async {
-      _loader.saveAll();
-      return true;
-    },
-    child: _app(context),
-  );
+        onWillPop: () async {
+          _loader.saveAll();
+          return true;
+        },
+        child: _app(context),
+      );
 
   final _isSelected = [false, false, false, false, false, false, false];
 
@@ -161,6 +162,7 @@ class _ImageCutterState extends State<ImageCutter> {
           bottom: 12.0,
           left: 0.0,
           child: ToggleButtons(
+            selectedColor: Colors.red,
             borderColor: Color.fromARGB(0, 0, 0, 0),
             children: [
               Icon(Icons.skip_previous),
@@ -197,8 +199,8 @@ class _ImageCutterState extends State<ImageCutter> {
                 default:
                   break;
               }
-              setState(() => _info =
-                  '$_count / $_total [$_dataId / ${_data.length}]');
+              setState(() =>
+                  _info = '$_count / $_total [$_dataId / ${_data.length}]');
             },
             isSelected: _isSelected,
           ),
