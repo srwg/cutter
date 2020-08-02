@@ -223,8 +223,6 @@ class _ImageCutterState extends State<ImageCutter> with WidgetsBindingObserver {
       ),
       RaisedButton(
           onPressed: () {
-            _loader.saveAllPacks();
-            Navigator.pop(context);
             Navigator.pushNamed(context, 'view');
           },
           child: Icon(Icons.accessibility))

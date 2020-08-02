@@ -4,7 +4,7 @@ class Shuffler {
   final int _n;
   List<int> _a;
   int _cur = 0;
-  Random _random = new Random();
+  final _random = Random();
 
   Shuffler(this._n) {
     _a = new List<int>(_n);

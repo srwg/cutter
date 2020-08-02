@@ -8,7 +8,7 @@ import 'image_data.dart';
 import 'image_index.dart';
 
 class ImageLoader {
-  List<ImageData> rawdata = [];
+  List<ImageData> _data = [];
   List<List<ImageData>> _packedData = [];
   final _imageIndex = <ImageIndex>[];
   int _cur = -1;
@@ -22,7 +22,7 @@ class ImageLoader {
     final n = f.lengthSync() ~/ 16;
     for (int i = 0; i < n; ++i) {
       var data = ImageData(f);
-      rawdata.add(data);
+      _data.add(data);
       while (_packedData.length < data.index + 1) {
         _packedData.add(<ImageData>[]);
       }
@@ -59,7 +59,6 @@ class ImageLoader {
 
   void saveAllPacks() {
     if (!modified) return;
-    print('************** hahaha');
     final f = File(path + 'dir').openSync(mode: FileMode.write);
     for (var dataList in _packedData) {
       for (var data in dataList) {
@@ -69,12 +68,12 @@ class ImageLoader {
     modified = false;
   }
 
-  int getN() => rawdata.length;
+  int getN() => _data.length;
 
-  int getMerit(int id) => rawdata[id].merit;
+  int getMerit(int id) => _data[id].merit;
 
   Uint8List getImage(int id) {
-    var data = rawdata[id];
+    var data = _data[id];
     var rawImage = _getImage(data.index);
     return image.encodeJpg(image.copyCrop(
         image.copyRotate(image.decodeImage(rawImage), data.rotation),
@@ -82,5 +81,10 @@ class ImageLoader {
         data.dy,
         data.w,
         data.h));
+  }
+  
+  void setMerit(int id, int merit) {
+    _data[id].merit = merit;
+    modified = true;
   }
 }
