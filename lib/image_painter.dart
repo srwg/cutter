@@ -28,6 +28,10 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
 
   ImagePainter(this._callback);
 
+  final Function _callback;
+
+  ImagePainter(this._callback);
+
   void setBoundary(double w, double h) {
     _w = w;
     _h = h;
