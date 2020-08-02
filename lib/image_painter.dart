@@ -19,10 +19,14 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
 
   Uint8List _rawImage;
   ui.Image _image;
+  Iterable<ImageData> _all;
   ImageData _data;
   bool _rawImageChanged;
 
   int _firstPan;
+  final Function _callback;
+
+  ImagePainter(this._callback);
 
   void setBoundary(double w, double h) {
     _w = w;
@@ -62,6 +66,26 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
     notifyListeners();
   }
 
+  void _checkData() {
+    if (_all.length < 1) {
+      _callback(false);
+      return;
+    }
+    final data = ImageData.from(_data)
+      ..rotation = _rotation
+      ..dx = -_offset.dx.round()
+      ..dy = -_offset.dy.round()
+      ..w = (_w / _zoom).round()
+      ..h = (_h / _zoom).round();
+    if (data.dx + data.w > _image.width) {
+      data.dx = _image.width - data.w;
+    }
+    if (data.dy + data.h > _image.height) {
+      data.dy = _image.height - data.h;
+    }
+    _callback(data.match(_all));
+  }
+
   void save(int merit) {
     _data.merit = merit;
     _data.rotation = _rotation;
@@ -82,7 +106,8 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
     _rawImageChanged = true;
   }
 
-  void setData(ImageData data) async {
+  void setData(List<ImageData> all, ImageData data) async {
+    _all = all.where((d) => d != data && d.merit != 3 && d.merit != 0);
     _data = data;
     if (_rotation != _data.rotation || _rawImageChanged) {
       _rawImageChanged = false;
@@ -169,6 +194,7 @@ class ImagePainter extends ChangeNotifier implements CustomPainter {
       // Stick to right
       _offset = _offset.translate(w - _image.width - _offset.dx, 0.0);
     }
+    _checkData();
   }
 
   void write(RandomAccessFile f) {
